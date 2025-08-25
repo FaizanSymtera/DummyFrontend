@@ -1,70 +1,242 @@
-# Getting Started with Create React App
+# 🧬 Cognito AI Pharmaceutical Intelligence Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern, professional React frontend for the Cognito AI Pharmaceutical Intelligence Platform. This application provides an intuitive interface for drug analysis, company intelligence, and AI-powered pharmaceutical research.
 
-## Available Scripts
+## ✨ Features
 
-In the project directory, you can run:
+### 🎨 Modern UI/UX
+- **Professional Design**: Clean, modern interface with gradient themes and smooth animations
+- **Responsive Layout**: Optimized for desktop, tablet, and mobile devices
+- **Material-UI Components**: Built with Material-UI v5 for consistent design language
+- **Dark/Light Theme Support**: Customizable theme system
+- **Smooth Animations**: CSS transitions and hover effects for enhanced user experience
 
-### `npm start`
+### 🔍 Core Functionality
+- **Drug Intelligence Search**: Comprehensive pharmaceutical analysis with 4 analysis types
+  - Comprehensive Analysis
+  - Market Analysis
+  - Formulation Analysis
+  - PK/PD Analysis
+- **Company Intelligence**: Deep dive into pharmaceutical companies and portfolios
+- **AI-Powered Insights**: GPT-4o enhanced search with LangChain validation
+- **Data Management**: MongoDB-powered storage with report management
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 🚀 Technical Features
+- **React 18**: Latest React features with hooks and functional components
+- **React Router v6**: Client-side routing with lazy loading
+- **Material-UI v5**: Professional component library
+- **Axios**: HTTP client for API communication
+- **Error Boundaries**: Graceful error handling
+- **Loading States**: Professional loading indicators
+- **Responsive Design**: Mobile-first approach
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 🛠️ Installation & Setup
 
-### `npm test`
+### Prerequisites
+- Node.js (v16 or higher)
+- npm or yarn
+- Backend API running on `http://localhost:8000`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Quick Start
 
-### `npm run build`
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd react-frontend
+   ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+3. **Start the development server**
+   ```bash
+   npm start
+   ```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+4. **Open your browser**
+   Navigate to `http://localhost:3000`
 
-### `npm run eject`
+### Build for Production
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+npm run build
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The build files will be created in the `build` folder.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## 📁 Project Structure
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```
+src/
+├── components/          # Reusable UI components
+│   ├── Header.js       # Navigation header
+│   ├── ErrorBoundary.js # Error handling
+│   └── LoadingSpinner.js # Loading indicators
+├── pages/              # Page components
+│   ├── Dashboard.js    # Main dashboard
+│   ├── DrugSearch.js   # Drug analysis page
+│   ├── CompanySearch.js # Company analysis page
+│   ├── Reports.js      # Reports management
+│   └── APIInfo.js      # API documentation
+├── services/           # API services
+│   └── api.js         # API client configuration
+├── App.js             # Main app component
+├── index.js           # App entry point
+└── index.css          # Global styles
+```
 
-## Learn More
+## 🎯 Key Components
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Dashboard
+- **API Status Monitoring**: Real-time backend health checks
+- **Feature Cards**: Quick access to main functionalities
+- **Quick Actions**: One-click navigation to key features
+- **System Information**: API version and capabilities display
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Drug Search
+- **Multi-Analysis Support**: 4 different analysis types
+- **Real-time Search**: Instant results with loading states
+- **Copy to Clipboard**: Easy content sharing
+- **Report Management**: Save and retrieve analysis reports
 
-### Code Splitting
+### Header Navigation
+- **Sticky Navigation**: Always accessible navigation bar
+- **Active State Indicators**: Clear current page indication
+- **Responsive Design**: Mobile-friendly navigation
+- **Brand Identity**: Professional logo and branding
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 🎨 Design System
 
-### Analyzing the Bundle Size
+### Color Palette
+- **Primary**: Blue (#2563eb) - Main brand color
+- **Secondary**: Purple (#7c3aed) - Accent color
+- **Success**: Green (#10b981) - Success states
+- **Warning**: Orange (#f59e0b) - Warning states
+- **Error**: Red (#ef4444) - Error states
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Typography
+- **Font Family**: Inter (Google Fonts)
+- **Font Weights**: 300, 400, 500, 600, 700
+- **Responsive**: Scales appropriately on different screen sizes
 
-### Making a Progressive Web App
+### Components
+- **Cards**: Elevated with subtle shadows and hover effects
+- **Buttons**: Gradient backgrounds with hover animations
+- **Forms**: Clean, accessible form controls
+- **Alerts**: Contextual feedback with appropriate colors
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## 🔧 Configuration
 
-### Advanced Configuration
+### API Configuration
+The frontend is configured to connect to the backend API at `http://localhost:8000`. You can modify this in `src/services/api.js`:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```javascript
+const API_BASE_URL = 'http://localhost:8000';
+```
 
-### Deployment
+### Theme Customization
+The theme can be customized in `src/App.js`. The theme object includes:
+- Color palette
+- Typography settings
+- Component overrides
+- Shape configurations
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## 🚀 Performance Optimizations
 
-### `npm run build` fails to minify
+- **Lazy Loading**: Pages are loaded on-demand using React.lazy()
+- **Code Splitting**: Automatic code splitting for better performance
+- **Optimized Images**: WebP format support
+- **Minified CSS**: Production builds include minified styles
+- **Tree Shaking**: Unused code is automatically removed
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 📱 Responsive Design
+
+The application is fully responsive and optimized for:
+- **Desktop**: 1200px+ (Full feature set)
+- **Tablet**: 768px - 1199px (Adapted layout)
+- **Mobile**: <768px (Mobile-optimized navigation)
+
+## 🔒 Security Features
+
+- **Error Boundaries**: Graceful error handling
+- **Input Validation**: Client-side form validation
+- **XSS Protection**: Sanitized content rendering
+- **CORS Handling**: Proper cross-origin request handling
+
+## 🧪 Testing
+
+```bash
+# Run tests
+npm test
+
+# Run tests with coverage
+npm test -- --coverage
+
+# Run tests in watch mode
+npm test -- --watch
+```
+
+## 📦 Available Scripts
+
+- `npm start` - Start development server
+- `npm build` - Build for production
+- `npm test` - Run test suite
+- `npm eject` - Eject from Create React App (irreversible)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+1. **Port 3000 already in use**
+   ```bash
+   # Kill the process using port 3000
+   npx kill-port 3000
+   ```
+
+2. **API connection issues**
+   - Ensure the backend is running on `http://localhost:8000`
+   - Check CORS configuration in the backend
+   - Verify network connectivity
+
+3. **Build errors**
+   ```bash
+   # Clear cache and reinstall dependencies
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+### Getting Help
+
+- Check the browser console for error messages
+- Verify all dependencies are installed correctly
+- Ensure Node.js version is compatible (v16+)
+- Check the backend API status
+
+## 🔮 Future Enhancements
+
+- [ ] Dark mode toggle
+- [ ] Advanced filtering options
+- [ ] Export functionality (PDF, Excel)
+- [ ] Real-time notifications
+- [ ] User authentication
+- [ ] Advanced analytics dashboard
+- [ ] Multi-language support
+- [ ] Offline mode support
+
+---
+
+**Built with ❤️ using React, Material-UI, and modern web technologies**
