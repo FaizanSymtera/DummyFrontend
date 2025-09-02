@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognito AI Source Highlighter</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .header {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .bookmarklet {
+            background: #f8fafc;
+            border: 2px dashed #2563eb;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .bookmarklet a {
+            display: inline-block;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .bookmarklet a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        .instructions {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .instructions h3 {
+            color: #2563eb;
+            margin-top: 0;
+        }
+        .supported-sites {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .supported-sites h3 {
+            color: #0369a1;
+            margin-top: 0;
+        }
+        .site-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .site-item {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .warning h4 {
+            color: #d97706;
+            margin-top: 0;
+        }
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 Cognito AI Source Highlighter</h1>
+        <p>Highlight specific sections on pharmaceutical source websites</p>
+    </div>
+
+    <div class="bookmarklet">
+        <h3>📌 Drag this to your bookmarks bar:</h3>
+        <a href="javascript:(function(){try{const urlParams=new URLSearchParams(window.location.search);const shouldHighlight=urlParams.get('highlight');const sectionId=window.location.hash.substring(1);console.log('Cognito AI: URL params - highlight:',shouldHighlight,'sectionId:',sectionId);if(shouldHighlight&&sectionId){console.log('Cognito AI: Attempting to highlight section:',sectionId);const selectors=['#'+sectionId,'[name=&quot;'+sectionId+'&quot;]','[data-section=&quot;'+sectionId+'&quot;]','[id*=&quot;'+sectionId+'&quot;]','[class*=&quot;'+sectionId+'&quot;]','[data-id=&quot;'+sectionId+'&quot;]','[data-anchor=&quot;'+sectionId+'&quot;]'];let element=null;for(const selector of selectors){element=document.querySelector(selector);if(element)break;}if(!element){const textElements=document.querySelectorAll('p,h1,h2,h3,h4,h5,h6,div,span,td,th,li,article,section');for(const el of textElements){if(el.textContent.toLowerCase().includes(sectionId.toLowerCase())){element=el;break;}}}if(element){element.scrollIntoView({behavior:'smooth',block:'center'});const originalStyles={backgroundColor:element.style.backgroundColor,border:element.style.border,borderRadius:element.style.borderRadius,padding:element.style.padding,boxShadow:element.style.boxShadow};element.style.backgroundColor='#fff3cd';element.style.border='2px solid #ffc107';element.style.borderRadius='4px';element.style.padding='8px';element.style.boxShadow='0 0 10px rgba(255, 193, 7, 0.5)';element.style.transition='all 0.3s ease';setTimeout(()=>{element.style.backgroundColor=originalStyles.backgroundColor;element.style.border=originalStyles.border;element.style.borderRadius=originalStyles.borderRadius;element.style.padding=originalStyles.padding;element.style.boxShadow=originalStyles.boxShadow;},5000);console.log('Cognito AI: Section highlighted successfully');}else{console.log('Cognito AI: Section not found, showing notification');const notification=document.createElement('div');notification.style.cssText='position:fixed;top:20px;right:20px;background:#f44336;color:white;padding:15px;border-radius:8px;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:Arial,sans-serif;max-width:300px;';notification.innerHTML='<strong>Cognito AI:</strong><br>Section &quot;'+sectionId+'&quot; not found on this page.<br>Try searching for it manually.';document.body.appendChild(notification);setTimeout(()=>{document.body.removeChild(notification);},5000);}}else if(shouldHighlight){console.log('Cognito AI: Highlight parameter found but no section ID');}else{console.log('Cognito AI: No highlight parameters found');}}catch(error){console.error('Cognito AI: Error in highlighting script:',error);}})();">
+            🔍 Highlight Source
+        </a>
+    </div>
+
+    <div class="instructions">
+        <h3>📋 How to Use:</h3>
+        <ol>
+            <li><strong>Save the bookmarklet:</strong> Drag the "Highlight Source" button above to your browser's bookmarks bar</li>
+            <li><strong>Navigate to a source:</strong> When you click on a table cell in Cognito AI, it will open the source page</li>
+            <li><strong>Activate highlighting:</strong> Click the "Highlight Source" bookmarklet in your bookmarks bar</li>
+            <li><strong>View the highlighted section:</strong> The relevant section will be highlighted in yellow for 5 seconds</li>
+        </ol>
+    </div>
+
+    <div class="supported-sites">
+        <h3>✅ Supported Websites:</h3>
+        <p>The source highlighter works best with these authoritative pharmaceutical websites:</p>
+        <div class="site-list">
+            <div class="site-item">FDA.gov</div>
+            <div class="site-item">ClinicalTrials.gov</div>
+            <div class="site-item">PubMed (NCBI)</div>
+            <div class="site-item">EMA.europa.eu</div>
+            <div class="site-item">Google Patents</div>
+            <div class="site-item">USPTO.gov</div>
+            <div class="site-item">EPO.org</div>
+            <div class="site-item">WIPO.int</div>
+            <div class="site-item">DailyMed</div>
+            <div class="site-item">RxList.com</div>
+            <div class="site-item">Drugs.com</div>
+            <div class="site-item">Medicines.org.uk</div>
+            <div class="site-item">Research and Markets</div>
+        </div>
+    </div>
+
+    <div class="warning">
+        <h4>⚠️ Important Notes:</h4>
+        <ul>
+            <li>This bookmarklet works by looking for HTML elements with specific IDs or attributes</li>
+            <li>Not all websites support direct section highlighting</li>
+            <li>Some websites may block or modify the highlighting behavior</li>
+            <li>The highlighting effect will automatically disappear after 5 seconds</li>
+            <li>For best results, use with the latest version of Chrome, Firefox, or Safari</li>
+        </ul>
+    </div>
+
+    <div class="instructions">
+        <h3>🔧 Technical Details:</h3>
+        <p>The bookmarklet looks for elements with:</p>
+        <ul>
+            <li><code>id="section-name"</code> - Standard HTML ID attributes</li>
+            <li><code>name="section-name"</code> - Anchor name attributes</li>
+            <li><code>data-section="section-name"</code> - Custom data attributes</li>
+        </ul>
+        <p>When a matching element is found, it will:</p>
+        <ul>
+            <li>Scroll to the element smoothly</li>
+            <li>Apply a yellow highlight with border</li>
+            <li>Add a subtle shadow effect</li>
+            <li>Remove the highlighting after 5 seconds</li>
+        </ul>
+    </div>
+
+    <div class="instructions">
+        <h3>🆘 Troubleshooting:</h3>
+        <ul>
+            <li><strong>No highlighting appears:</strong> The section ID might not exist on the page, or the website may have blocked the script</li>
+            <li><strong>Page doesn't scroll:</strong> The element might be hidden or not yet loaded</li>
+            <li><strong>Bookmarklet doesn't work:</strong> Try refreshing the page and clicking the bookmarklet again</li>
+            <li><strong>Browser compatibility:</strong> Works best with modern browsers (Chrome 80+, Firefox 75+, Safari 13+)</li>
+        </ul>
+    </div>
+
+    <footer style="text-align: center; margin-top: 40px; padding: 20px; border-top: 1px solid #e2e8f0; color: #64748b;">
+        <p>🔬 Cognito AI Pharmaceutical Intelligence Platform</p>
+        <p>Enhancing source attribution and verification for pharmaceutical research</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Source Highlighting</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .header {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-section h3 {
+            color: #2563eb;
+            margin-top: 0;
+        }
+        .url-display {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            font-size: 14px;
+        }
+        .test-link {
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-link:hover {
+            background: #1d4ed8;
+        }
+        .info-box {
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning-box {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .success-box {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .debug-info {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 Debug Source Highlighting</h1>
+        <p>Test and debug the source highlighting functionality</p>
+    </div>
+
+    <div class="info-box">
+        <h3>📋 How to Test:</h3>
+        <ol>
+            <li>Click on any test link below to open a source page</li>
+            <li>Check the browser console for debug messages</li>
+            <li>Look for the "Cognito AI:" prefix in console messages</li>
+            <li>Verify that the URL contains both <code>?highlight=true</code> and <code>#section-id</code></li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Test URLs with Highlighting Parameters</h3>
+        
+        <h4>FDA.gov Test:</h4>
+        <div class="url-display">
+            https://www.fda.gov/drugs/drug-approvals-and-databases?highlight=true&_t=1234567890#dosage-forms
+        </div>
+        <a href="https://www.fda.gov/drugs/drug-approvals-and-databases?highlight=true&_t=1234567890#dosage-forms" 
+           target="_blank" class="test-link">Test FDA.gov</a>
+
+        <h4>PubMed Test:</h4>
+        <div class="url-display">
+            https://pubmed.ncbi.nlm.nih.gov/12345678/?highlight=true&_t=1234567890#abstract
+        </div>
+        <a href="https://pubmed.ncbi.nlm.nih.gov/12345678/?highlight=true&_t=1234567890#abstract" 
+           target="_blank" class="test-link">Test PubMed</a>
+
+        <h4>ClinicalTrials.gov Test:</h4>
+        <div class="url-display">
+            https://clinicaltrials.gov/ct2/show/NCT12345678?highlight=true&_t=1234567890#study-description
+        </div>
+        <a href="https://clinicaltrials.gov/ct2/show/NCT12345678?highlight=true&_t=1234567890#study-description" 
+           target="_blank" class="test-link">Test ClinicalTrials.gov</a>
+
+        <h4>Research Nester Test:</h4>
+        <div class="url-display">
+            https://www.researchnester.com/reports/anticoagulants-market/7409?highlight=true&_t=1234567890#apixaban-market-outlook
+        </div>
+        <a href="https://www.researchnester.com/reports/anticoagulants-market/7409?highlight=true&_t=1234567890#apixaban-market-outlook" 
+           target="_blank" class="test-link">Test Research Nester</a>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Current Page Debug Info</h3>
+        <div class="debug-info" id="debugInfo">
+            Loading debug information...
+        </div>
+    </div>
+
+    <div class="warning-box">
+        <h4>⚠️ Important Notes:</h4>
+        <ul>
+            <li>Some websites may block or modify the highlighting behavior</li>
+            <li>The bookmarklet must be installed and clicked manually on the target page</li>
+            <li>Check the browser console for "Cognito AI:" messages</li>
+            <li>If highlighting doesn't work, the section ID might not exist on the page</li>
+        </ul>
+    </div>
+
+    <div class="success-box">
+        <h4>✅ Expected Console Messages:</h4>
+        <ul>
+            <li><code>Cognito AI: URL params - highlight: true sectionId: dosage-forms</code></li>
+            <li><code>Cognito AI: Attempting to highlight section: dosage-forms</code></li>
+            <li><code>Cognito AI: Section highlighted successfully</code></li>
+            <li>Or: <code>Cognito AI: Section not found, showing notification</code></li>
+        </ul>
+    </div>
+
+    <script>
+        // Debug script to show current page parameters
+        function updateDebugInfo() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const shouldHighlight = urlParams.get('highlight');
+            const sectionId = window.location.hash.substring(1);
+            
+            const debugInfo = document.getElementById('debugInfo');
+            debugInfo.innerHTML = `
+Current URL: ${window.location.href}
+<br>
+Search Parameters: ${window.location.search}
+<br>
+Hash Fragment: ${window.location.hash}
+<br>
+Highlight Parameter: ${shouldHighlight}
+<br>
+Section ID: ${sectionId}
+<br>
+<br>
+Expected Behavior:
+<br>
+- If highlight=true and sectionId exists: Should attempt to highlight
+<br>
+- If highlight=true but no sectionId: Should log "Highlight parameter found but no section ID"
+<br>
+- If no highlight parameter: Should log "No highlight parameters found"
+            `;
+        }
+
+        // Update debug info on page load
+        updateDebugInfo();
+
+        // Log current parameters to console
+        const urlParams = new URLSearchParams(window.location.search);
+        const shouldHighlight = urlParams.get('highlight');
+        const sectionId = window.location.hash.substring(1);
+        
+        console.log('Cognito AI Debug: Current page parameters');
+        console.log('Cognito AI Debug: highlight =', shouldHighlight);
+        console.log('Cognito AI Debug: sectionId =', sectionId);
+        console.log('Cognito AI Debug: full URL =', window.location.href);
+    </script>
+</body>
+</html>

@@ -15,6 +15,7 @@ const CompanySearch = lazy(() => import('./pages/CompanySearch'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Sources = lazy(() => import('./pages/Sources'));
 const APIInfo = lazy(() => import('./pages/APIInfo'));
+const SourceTest = lazy(() => import('./components/SourceTest'));
 
 // Create a modern, professional theme
 const theme = createTheme({
@@ -204,6 +205,7 @@ function App() {
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/sources" element={<Sources />} />
                     <Route path="/api-info" element={<APIInfo />} />
+                    <Route path="/source-test" element={<SourceTest />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

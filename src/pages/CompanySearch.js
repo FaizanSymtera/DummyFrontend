@@ -38,9 +38,14 @@ import {
   Analytics,
   CheckCircle,
   Info,
-  Download
+  Download,
+  BugReport
 } from '@mui/icons-material';
 import { companyAPI, generalAPI } from '../services/api';
+import ClickableTableCell from '../components/ClickableTableCell';
+import SourceSummary from '../components/SourceSummary';
+import { debugTableData, logDebug, isDebugEnabled, setDebugEnabled } from '../utils/debugUtils';
+import { convertMarkdownToStructuredData, analyzeMarkdownContent } from '../utils/markdownParser';
 
 const CompanySearch = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -53,6 +58,7 @@ const CompanySearch = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const analysisTypes = [
     { 
@@ -61,7 +67,7 @@ const CompanySearch = () => {
       icon: <Business />, 
       color: 'primary',
       description: 'Complete company portfolio and drug analysis',
-      gradient: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
+      gradient: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)'
     }
   ];
 
@@ -90,6 +96,50 @@ const CompanySearch = () => {
     }
   };
 
+  // Debug table data
+  const debugTableDataHandler = () => {
+    if (result && result.tables) {
+      const debugResults = result.tables.map((table, index) => ({
+        tableIndex: index,
+        tableTitle: table.title,
+        debugInfo: debugTableData(table.rows)
+      }));
+      
+      setDebugInfo(debugResults);
+      logDebug('Table Data Analysis', debugResults, true);
+      
+      // Also analyze the raw markdown content if available
+      if (result.report) {
+        const markdownAnalysis = analyzeMarkdownContent(result.report);
+        console.log('Markdown Content Analysis:', markdownAnalysis);
+      }
+      
+      setSnackbar({
+        open: true,
+        message: `Table data analysis completed. Found ${result.tables.length} tables with ${result.tables.reduce((total, table) => total + table.rows.length, 0)} rows.`,
+        severity: 'info'
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: 'No table data available for debugging',
+        severity: 'warning'
+      });
+    }
+  };
+
+  // Toggle debug mode
+  const toggleDebugMode = () => {
+    const currentDebugState = isDebugEnabled();
+    setDebugEnabled(!currentDebugState);
+    
+    setSnackbar({
+      open: true,
+      message: `Debug mode ${!currentDebugState ? 'enabled' : 'disabled'}`,
+      severity: 'info'
+    });
+  };
+
   const handleSearch = async () => {
     if (!formData.company_name.trim()) {
       setError('Please enter a company name');
@@ -100,6 +150,7 @@ const CompanySearch = () => {
     setLoadingProgress(0);
     setError(null);
     setResult(null);
+    setDebugInfo(null);
 
     // Simulate progress for long-running requests
     const progressInterval = setInterval(() => {
@@ -121,9 +172,67 @@ const CompanySearch = () => {
       // Always use comprehensive analysis
       response = await companyAPI.search(searchData);
 
-      console.log('API Response:', response);
-      setLoadingProgress(100);
-      setResult(response.data);
+      console.log('Company search response:', response);
+             console.log('Response data structure:', {
+         hasSuccess: !!response.data?.success,
+         hasTables: !!response.data?.tables,
+         hasReport: !!response.data?.report,
+         hasData: !!response.data?.data,
+         hasReportContent: !!response.data?.data?.report_content,
+         tablesCount: response.data?.tables?.length || 0,
+         reportType: typeof response.data?.report,
+         fullData: response.data
+       });
+
+             if (response.data && response.data.success) {
+         let processedData = response.data;
+         
+         // Handle the actual backend response structure
+         if (response.data.data && response.data.data.report_content) {
+           console.log('Found report_content, converting to structured format...');
+           const markdownContent = response.data.data.report_content;
+           
+           // Convert the markdown content to structured tables
+           processedData = convertMarkdownToStructuredData(markdownContent);
+           
+           // Add the original response data for reference
+           processedData.originalData = response.data.data;
+           processedData.report_id = response.data.data.report_id;
+           processedData.search_query = `Company search for ${formData.company_name}`;
+           processedData.timestamp = new Date().toISOString();
+           
+           console.log('Converted data:', processedData);
+         }
+        // If we have raw markdown content but no tables, try to parse it
+        else if (response.data.report && (!response.data.tables || response.data.tables.length === 0)) {
+          console.log('Converting markdown content to structured tables...');
+          processedData = convertMarkdownToStructuredData(response.data.report);
+          console.log('Converted data:', processedData);
+        }
+        
+        setResult(processedData);
+        
+        // Debug table data if debug mode is enabled
+        if (isDebugEnabled() && processedData.tables) {
+          setTimeout(() => {
+            debugTableDataHandler();
+          }, 1000);
+        }
+        
+        // Analyze markdown content for debugging
+        if (processedData.report) {
+          const analysis = analyzeMarkdownContent(processedData.report);
+          console.log('Markdown content analysis:', analysis);
+        }
+        
+        setSnackbar({
+          open: true,
+          message: `Company analysis completed successfully! ${processedData.tables?.length || 0} tables found.`,
+          severity: 'success'
+        });
+      } else {
+        throw new Error(response.data?.message || 'Unknown error occurred');
+      }
     } catch (err) {
       console.error('Search error:', err);
       console.error('Error details:', {
@@ -139,6 +248,12 @@ const CompanySearch = () => {
       } else {
         setError(err.userMessage || err.response?.data?.detail || 'An error occurred during the search');
       }
+      
+      setSnackbar({
+        open: true,
+        message: `Search failed: ${err.userMessage || err.message}`,
+        severity: 'error'
+      });
     } finally {
       clearInterval(progressInterval);
       setLoading(false);
@@ -326,12 +441,27 @@ const CompanySearch = () => {
   };
 
   const getReportContent = () => {
-    if (!result?.data) return '';
+    if (!result) return '';
     
-    return result.data.report_content || 
-           result.data.company_information || 
-           result.data.content || 
-           JSON.stringify(result.data, null, 2);
+    // Handle the new structure where content is in originalData.report_content
+    if (result.originalData && result.originalData.report_content) {
+      return result.originalData.report_content;
+    }
+    
+    // Handle the old structure
+    if (result.report) {
+      return typeof result.report === 'string' ? result.report : JSON.stringify(result.report, null, 2);
+    }
+    
+    // Fallback to old structure
+    if (result.data) {
+      return result.data.report_content || 
+             result.data.company_information || 
+             result.data.content || 
+             JSON.stringify(result.data, null, 2);
+    }
+    
+    return '';
   };
 
   // Clean markdown formatting from text
@@ -811,6 +941,55 @@ const CompanySearch = () => {
               >
                 Test API Connection
               </Button>
+
+              {/* Debug Controls */}
+              <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={toggleDebugMode}
+                  startIcon={<BugReport />}
+                  color={isDebugEnabled() ? 'success' : 'default'}
+                >
+                  {isDebugEnabled() ? 'Debug ON' : 'Debug OFF'}
+                </Button>
+                {result && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={debugTableDataHandler}
+                    startIcon={<BugReport />}
+                  >
+                    Debug Tables
+                  </Button>
+                )}
+                {result && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      console.log('=== FULL RESULT DATA ===');
+                      console.log('Result object:', result);
+                      console.log('Result type:', typeof result);
+                      console.log('Has tables:', !!result.tables);
+                      console.log('Tables count:', result.tables?.length || 0);
+                      console.log('Has report:', !!result.report);
+                      console.log('Report type:', typeof result.report);
+                      if (result.report) {
+                        console.log('Report preview (first 500 chars):', result.report.substring(0, 500));
+                      }
+                      setSnackbar({
+                        open: true,
+                        message: 'Result data logged to console',
+                        severity: 'info'
+                      });
+                    }}
+                    startIcon={<Info />}
+                  >
+                    Log Result Data
+                  </Button>
+                )}
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -1014,11 +1193,32 @@ const CompanySearch = () => {
                   </Grid>
                 </Grid>
 
+                {/* Debug Information */}
+                {debugInfo && (
+                  <Accordion defaultExpanded sx={{ mb: 3 }}>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <BugReport sx={{ mr: 1, color: 'warning.main' }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          Debug Information
+                        </Typography>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, maxHeight: 400, overflow: 'auto' }}>
+                        <pre style={{ margin: 0, fontSize: '12px', fontFamily: 'monospace' }}>
+                          {JSON.stringify(debugInfo, null, 2)}
+                        </pre>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+
                 {/* Parsed Tables */}
                 {(() => {
-                  const tables = parseAIResponse(getReportContent());
-                  if (tables.length > 0) {
-                    return tables.map((table, index) => (
+                  // Use the new structured tables if available
+                  if (result.tables && result.tables.length > 0) {
+                    return result.tables.map((table, index) => (
                       <Card key={index} sx={{ mb: 3, background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
                         <CardContent sx={{ p: 3 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -1050,18 +1250,11 @@ const CompanySearch = () => {
                               <TableHead>
                                 <TableRow>
                                   {table.headers.map((header, headerIndex) => (
-                                    <TableCell 
+                                    <ClickableTableCell 
                                       key={headerIndex}
-                                      sx={{ 
-                                        fontWeight: 600,
-                                        background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
-                                        color: 'white',
-                                        fontSize: '0.875rem',
-                                        whiteSpace: 'nowrap'
-                                      }}
-                                    >
-                                      {header}
-                                    </TableCell>
+                                      cellContent={header}
+                                      isHeader={true}
+                                    />
                                   ))}
                                 </TableRow>
                               </TableHead>
@@ -1079,17 +1272,96 @@ const CompanySearch = () => {
                                     }}
                                   >
                                     {row.map((cell, cellIndex) => (
-                                      <TableCell 
+                                      <ClickableTableCell 
                                         key={cellIndex}
-                                        sx={{ 
-                                          fontSize: '0.875rem',
-                                          maxWidth: 200,
-                                          wordWrap: 'break-word',
-                                          whiteSpace: 'pre-wrap'
-                                        }}
-                                      >
-                                        {cell}
-                                      </TableCell>
+                                        cellContent={cell}
+                                      />
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                          
+                          {/* Source Summary */}
+                          <SourceSummary 
+                            tableRows={table.rows}
+                            tableTitle={table.title}
+                          />
+                        </CardContent>
+                      </Card>
+                    ));
+                  }
+                  
+                  // Fallback to old parsing method
+                  const tables = parseAIResponse(getReportContent());
+                  if (tables.length > 0) {
+                    return tables.map((table, index) => (
+                      <Card key={index} sx={{ mb: 3, background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+                        <CardContent sx={{ p: 3 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <Avatar 
+                              sx={{ 
+                                background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                                mr: 2,
+                                width: 32,
+                                height: 32
+                              }}
+                            >
+                              <Analytics sx={{ fontSize: 16 }} />
+                            </Avatar>
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                              {table.title}
+                            </Typography>
+                          </Box>
+                          
+                          <TableContainer 
+                            component={Paper} 
+                            sx={{ 
+                              maxHeight: 600,
+                              overflow: 'auto',
+                              border: '1px solid rgba(0,0,0,0.05)',
+                              borderRadius: 2,
+                              '& .MuiTable-root': {
+                                minWidth: 650,
+                                tableLayout: 'auto'
+                              },
+                              '& .MuiTableCell-root': {
+                                maxWidth: 'none',
+                                wordBreak: 'break-word'
+                              }
+                            }}
+                          >
+                            <Table stickyHeader size="small">
+                              <TableHead>
+                                <TableRow>
+                                  {table.headers.map((header, headerIndex) => (
+                                    <ClickableTableCell 
+                                      key={headerIndex}
+                                      cellContent={header}
+                                      isHeader={true}
+                                    />
+                                  ))}
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {table.rows.map((row, rowIndex) => (
+                                  <TableRow 
+                                    key={rowIndex}
+                                    sx={{ 
+                                      '&:nth-of-type(odd)': { 
+                                        backgroundColor: 'rgba(0,0,0,0.02)' 
+                                      },
+                                      '&:hover': { 
+                                        backgroundColor: 'rgba(124, 58, 237, 0.05)' 
+                                      }
+                                    }}
+                                  >
+                                    {row.map((cell, cellIndex) => (
+                                      <ClickableTableCell 
+                                        key={cellIndex}
+                                        cellContent={cell}
+                                      />
                                     ))}
                                   </TableRow>
                                 ))}

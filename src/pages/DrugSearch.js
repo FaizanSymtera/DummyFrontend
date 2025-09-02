@@ -24,11 +24,13 @@ import {
   LinearProgress,
   Table,
   TableBody,
-  TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Link
 } from '@mui/material';
+import ClickableTableCell from '../components/ClickableTableCell';
+import SourceSummary from '../components/SourceSummary';
 import {
   Science, 
   Search, 
@@ -40,9 +42,13 @@ import {
   Analytics,
   CheckCircle,
   Error,
-  Info
+  Info,
+  BugReport
 } from '@mui/icons-material';
+
 import { drugAPI, generalAPI } from '../services/api';
+import { debugTableData, logDebug, isDebugEnabled, setDebugEnabled } from '../utils/debugUtils';
+import { convertMarkdownToStructuredData, analyzeMarkdownContent, debugTableParsing } from '../utils/markdownParser';
 
 const DrugSearch = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -56,6 +62,7 @@ const DrugSearch = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const analysisTypes = [
     { 
@@ -93,6 +100,71 @@ const DrugSearch = () => {
     }
   };
 
+  // Debug table data
+  const debugTableDataHandler = () => {
+    if (result && result.tables) {
+      const debugResults = result.tables.map((table, index) => ({
+        tableIndex: index,
+        tableTitle: table.title,
+        debugInfo: debugTableData(table.rows)
+      }));
+      
+      setDebugInfo(debugResults);
+      logDebug('Table Data Analysis', debugResults, true);
+      
+      // Also analyze the raw markdown content if available
+      if (result.report) {
+        const markdownAnalysis = analyzeMarkdownContent(result.report);
+        console.log('Markdown Content Analysis:', markdownAnalysis);
+      }
+      
+      setSnackbar({
+        open: true,
+        message: `Table data analysis completed. Found ${result.tables.length} tables with ${result.tables.reduce((total, table) => total + table.rows.length, 0)} rows.`,
+        severity: 'info'
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: 'No table data available for debugging',
+        severity: 'warning'
+      });
+    }
+  };
+
+  // Debug table parsing
+  const debugTableParsingHandler = () => {
+    if (result && result.report) {
+      const parsingDebug = debugTableParsing(result.report);
+      setDebugInfo(parsingDebug);
+      console.log('Table Parsing Debug:', parsingDebug);
+      
+      setSnackbar({
+        open: true,
+        message: `Table parsing debug completed. Found ${parsingDebug.potentialTableRows.length} potential table rows.`,
+        severity: 'info'
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: 'No report content available for parsing debug',
+        severity: 'warning'
+      });
+    }
+  };
+
+  // Toggle debug mode
+  const toggleDebugMode = () => {
+    const currentDebugState = isDebugEnabled();
+    setDebugEnabled(!currentDebugState);
+    
+    setSnackbar({
+      open: true,
+      message: `Debug mode ${!currentDebugState ? 'enabled' : 'disabled'}`,
+      severity: 'info'
+    });
+  };
+
   const handleSearch = async () => {
     if (!formData.product_name.trim()) {
       setError('Please enter a drug name');
@@ -100,610 +172,191 @@ const DrugSearch = () => {
     }
 
     setLoading(true);
-    setLoadingProgress(0);
     setError(null);
     setResult(null);
-
-    // Simulate progress for long-running requests
-    const progressInterval = setInterval(() => {
-      setLoadingProgress(prev => {
-        if (prev >= 90) return prev;
-        return prev + Math.random() * 10;
-      });
-    }, 2000);
+    setDebugInfo(null);
+    setLoadingProgress(0);
 
     try {
-      let response;
-      const searchData = {
-        product_name: formData.product_name,
-        user_id: formData.user_id
-      };
+      console.log('Starting drug search with data:', formData);
+      
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 500);
 
-      console.log('Sending search request with data:', searchData);
-      console.log('Active tab:', activeTab, 'Analysis type:', analysisTypes[activeTab].label);
-
-      // Always use comprehensive analysis
-      console.log('Calling comprehensive analysis...');
-      response = await drugAPI.search({
-        ...searchData,
-        product_type: 'comprehensive'
-      });
-
-      console.log('API Response:', response);
+      const response = await drugAPI.search(formData);
+      clearInterval(progressInterval);
       setLoadingProgress(100);
-      setResult(response.data);
-    } catch (err) {
-      console.error('Search error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        userMessage: err.userMessage,
-        response: err.response,
-        request: err.request
+
+      console.log('Drug search response:', response);
+      console.log('Response data structure:', {
+        hasSuccess: !!response.data?.success,
+        hasTables: !!response.data?.tables,
+        hasReport: !!response.data?.report,
+        hasData: !!response.data?.data,
+        hasProductInfo: !!response.data?.data?.product_information,
+        tablesCount: response.data?.tables?.length || 0,
+        reportType: typeof response.data?.report,
+        fullData: response.data
       });
       
-      // Handle timeout specifically
-      if (err.message.includes('timeout')) {
-        setError('Request timed out. The AI analysis is taking longer than expected. Please try again.');
+      if (response.data && response.data.success) {
+        let processedData = response.data;
+        
+        // Handle the actual backend response structure
+        if (response.data.data && response.data.data.product_information) {
+          console.log('Found product_information, converting to structured format...');
+          const markdownContent = response.data.data.product_information;
+          
+          console.log('Markdown content length:', markdownContent.length);
+          console.log('Markdown content preview (first 1000 chars):', markdownContent.substring(0, 1000));
+          console.log('Markdown content preview (last 500 chars):', markdownContent.substring(markdownContent.length - 500));
+          
+          // Convert the markdown content to structured tables
+          processedData = convertMarkdownToStructuredData(markdownContent);
+          
+          // Add the original response data for reference
+          processedData.originalData = response.data.data;
+          processedData.report_id = response.data.data.report_id;
+          processedData.search_query = response.data.data.search_query;
+          processedData.timestamp = response.data.data.timestamp;
+          
+          console.log('Converted data:', processedData);
+          console.log('Tables found:', processedData.tables?.length || 0);
+          if (processedData.tables) {
+            processedData.tables.forEach((table, index) => {
+              console.log(`Table ${index + 1}: "${table.title}" - ${table.rows.length} rows`);
+            });
+          }
+          
+          // If no tables were parsed, create a fallback table with the raw content
+          if (!processedData.tables || processedData.tables.length === 0) {
+            console.log('No tables parsed, creating fallback table...');
+            processedData.tables = [{
+              title: 'Raw Analysis Content',
+              headers: ['Content'],
+              rows: [[markdownContent]]
+            }];
+            processedData.hasTables = true;
+            processedData.tableCount = 1;
+            console.log('Created fallback table with raw content');
+          }
+        }
+        // If we have raw markdown content but no tables, try to parse it
+        else if (response.data.report && (!response.data.tables || response.data.tables.length === 0)) {
+          console.log('Converting markdown content to structured tables...');
+          processedData = convertMarkdownToStructuredData(response.data.report);
+          console.log('Converted data:', processedData);
+          
+          // If no tables were parsed, create a fallback table with the raw content
+          if (!processedData.tables || processedData.tables.length === 0) {
+            console.log('No tables parsed from report, creating fallback table...');
+            processedData.tables = [{
+              title: 'Raw Analysis Content',
+              headers: ['Content'],
+              rows: [[response.data.report]]
+            }];
+            processedData.hasTables = true;
+            processedData.tableCount = 1;
+            console.log('Created fallback table with raw report content');
+          }
+        }
+        
+        setResult(processedData);
+        
+        // Debug table data if debug mode is enabled
+        if (isDebugEnabled() && processedData.tables) {
+          setTimeout(() => {
+            debugTableDataHandler();
+          }, 1000);
+        }
+        
+        // Analyze markdown content for debugging
+        if (processedData.report) {
+          const analysis = analyzeMarkdownContent(processedData.report);
+          console.log('Markdown content analysis:', analysis);
+        }
+        
+        setSnackbar({
+          open: true,
+          message: `Drug analysis completed successfully! ${processedData.tables?.length || 0} tables found.`,
+          severity: 'success'
+        });
       } else {
-        setError(err.userMessage || err.response?.data?.detail || 'An error occurred during the search');
+        throw new Error(response.data?.message || 'Unknown error occurred');
       }
+    } catch (err) {
+      console.error('Drug search error:', err);
+      setError(err.userMessage || err.response?.data?.detail || 'Failed to search for drug information');
+      setSnackbar({
+        open: true,
+        message: `Search failed: ${err.userMessage || err.message}`,
+        severity: 'error'
+      });
     } finally {
-      clearInterval(progressInterval);
       setLoading(false);
       setLoadingProgress(0);
     }
   };
 
-  const copyToClipboard = (text) => {
-    if (text) {
-      navigator.clipboard.writeText(text);
-      setSnackbar({ open: true, message: 'Content copied to clipboard!', severity: 'success' });
-    } else {
-      setSnackbar({ open: true, message: 'No content to copy', severity: 'warning' });
-    }
-  };
-
-  const downloadReport = () => {
-    if (!result?.data) {
-      setSnackbar({ open: true, message: 'No report to download', severity: 'warning' });
-      return;
-    }
-
-    // Generate PDF content with parsed tables
-    const generatePDFContent = () => {
-      const tables = parseAIResponse(getReportContent());
-      let htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${formData.product_name} - ${analysisTypes[activeTab].label} Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 20px; }
-            .header h1 { color: #2563eb; margin: 0; font-size: 24px; }
-            .header h2 { color: #666; margin: 10px 0 0 0; font-size: 16px; font-weight: normal; }
-            .info-section { margin-bottom: 30px; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-            .info-card { background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #2563eb; }
-            .info-card h3 { margin: 0 0 10px 0; color: #2563eb; font-size: 14px; }
-            .info-card p { margin: 0; font-size: 12px; }
-            .table-section { margin-bottom: 40px; }
-            .table-title { color: #2563eb; font-size: 18px; margin-bottom: 15px; font-weight: bold; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
-            th { background: #2563eb; color: white; padding: 8px; text-align: left; font-weight: bold; }
-            td { padding: 6px 8px; border-bottom: 1px solid #ddd; }
-            tr:nth-child(even) { background: #f9f9f9; }
-            .page-break { page-break-before: always; }
-            @media print {
-              body { margin: 15px; }
-              .page-break { page-break-before: always; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>🔬 Drug Intelligence Report</h1>
-            <h2>${formData.product_name} - ${analysisTypes[activeTab].label} Analysis</h2>
-            <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
-          </div>
-
-          <div class="info-section">
-            <div class="info-grid">
-              <div class="info-card">
-                <h3>Report Information</h3>
-                <p><strong>Drug Name:</strong> ${formData.product_name}</p>
-                <p><strong>Analysis Type:</strong> ${analysisTypes[activeTab].label}</p>
-                <p><strong>Report ID:</strong> ${getReportId()}</p>
-              </div>
-              <div class="info-card">
-                <h3>Processing Details</h3>
-                <p><strong>Model Used:</strong> ${getModelUsed()}</p>
-                <p><strong>Processing Time:</strong> ${getProcessingTime()}</p>
-                <p><strong>Success:</strong> ${result.success ? 'Yes' : 'No'}</p>
-              </div>
-            </div>
-          </div>
-      `;
-
-      if (tables.length > 0) {
-        tables.forEach((table, index) => {
-          htmlContent += `
-            <div class="table-section ${index > 0 ? 'page-break' : ''}">
-              <h2 class="table-title">${table.title}</h2>
-              <table>
-                <thead>
-                  <tr>
-                    ${table.headers.map(header => `<th>${header}</th>`).join('')}
-                  </tr>
-                </thead>
-                <tbody>
-                  ${table.rows.map(row => `
-                    <tr>
-                      ${row.map(cell => `<td>${cell}</td>`).join('')}
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          `;
-        });
-      } else {
-        // Fallback to raw content if no tables found
-        htmlContent += `
-          <div class="table-section">
-            <h2 class="table-title">Analysis Content</h2>
-            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; white-space: pre-wrap; font-family: monospace; font-size: 11px;">
-              ${getReportContent().replace(/\n/g, '<br>')}
-            </div>
-          </div>
-        `;
-      }
-
-      htmlContent += `
-        </body>
-        </html>
-      `;
-
-      return htmlContent;
-    };
-
-    // Generate PDF using jsPDF and html2canvas
-    const generatePDF = async () => {
-      try {
-        // Create a temporary iframe to render the HTML
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'absolute';
-        iframe.style.left = '-9999px';
-        iframe.style.top = '-9999px';
-        iframe.style.width = '800px';
-        iframe.style.height = '600px';
-        document.body.appendChild(iframe);
-
-        const htmlContent = generatePDFContent();
-        iframe.contentDocument.write(htmlContent);
-        iframe.contentDocument.close();
-
-        // Wait for content to load
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Use html2canvas to capture the iframe
-        const canvas = await import('html2canvas').then(module => 
-          module.default(iframe.contentDocument.body, {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            width: 800,
-            height: iframe.contentDocument.body.scrollHeight
-          })
-        );
-
-        // Generate PDF using jsPDF
-        const jsPDF = await import('jspdf').then(module => module.default);
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        
-        const imgData = canvas.toDataURL('image/png');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        let heightLeft = imgHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft >= 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pdfHeight;
-        }
-
-        const fileName = `${formData.product_name}_${analysisTypes[activeTab].label}_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-        pdf.save(fileName);
-
-        // Clean up
-        document.body.removeChild(iframe);
-        
-        setSnackbar({ open: true, message: 'PDF report downloaded successfully!', severity: 'success' });
-      } catch (error) {
-        console.error('PDF generation error:', error);
-        setSnackbar({ open: true, message: 'Failed to generate PDF. Please try again.', severity: 'error' });
-      }
-    };
-
-    generatePDF();
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const getReportContent = () => {
-    if (!result?.data) return '';
+    if (!result) return '';
     
-    return result.data.product_information || 
-           result.data.report_content || 
-           result.data.content || 
-           JSON.stringify(result.data, null, 2);
+    // Handle the new structure where content is in originalData.product_information
+    if (result.originalData && result.originalData.product_information) {
+      return result.originalData.product_information;
+    }
+    
+    // Handle the old structure
+    if (result.report) {
+      return typeof result.report === 'string' ? result.report : JSON.stringify(result.report, null, 2);
+    }
+    
+    return '';
   };
 
-  // Clean markdown formatting from text
-  const cleanMarkdown = (text) => {
-    if (!text || typeof text !== 'string') return text;
-    
-    return text
-      // Remove bold formatting
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      // Remove italic formatting
-      .replace(/\*(.*?)\*/g, '$1')
-      // Remove code formatting
-      .replace(/`(.*?)`/g, '$1')
-      // Remove strikethrough
-      .replace(/~~(.*?)~~/g, '$1')
-      // Remove links but keep text
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Remove image syntax
-      .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-      // Clean up extra whitespace
-      .replace(/\s+/g, ' ')
-      .trim();
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setSnackbar({
+      open: true,
+      message: 'Content copied to clipboard!',
+      severity: 'success'
+    });
   };
 
-  // Parse AI response and extract tables
-  const parseAIResponse = (content) => {
-    if (!content || typeof content !== 'string') return [];
+  const downloadReport = () => {
+    if (!result) return;
     
-    console.log('=== PARSING DEBUG START ===');
-    console.log('Content length:', content.length);
-    console.log('Content preview:', content.substring(0, 500));
+    const content = getReportContent();
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${formData.product_name}_report.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     
-    // Try multiple parsing strategies
-    let tables = [];
-    
-    // Strategy 1: Standard markdown table parsing
-    tables = parseStandardTables(content);
-    if (tables.length > 0) {
-      console.log('Strategy 1 (Standard) found tables:', tables.length);
-      return tables;
-    }
-    
-    // Strategy 2: Alternative table parsing
-    tables = parseTablesAlternative(content);
-    if (tables.length > 0) {
-      console.log('Strategy 2 (Alternative) found tables:', tables.length);
-      return tables;
-    }
-    
-    // Strategy 3: Aggressive table detection
-    tables = parseAggressiveTables(content);
-    if (tables.length > 0) {
-      console.log('Strategy 3 (Aggressive) found tables:', tables.length);
-      return tables;
-    }
-    
-    console.log('No tables found with any parsing strategy');
-    return [];
-  };
-
-  // Strategy 1: Standard markdown table parsing
-  const parseStandardTables = (content) => {
-    const tables = [];
-    const lines = content.split('\n');
-    let currentTable = null;
-    let currentHeaders = [];
-    let currentRows = [];
-    let inTable = false;
-    let consecutiveEmptyLines = 0;
-    
-    console.log('Parsing standard tables with', lines.length, 'lines');
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      // Check if line contains table headers (has | characters)
-      if (line.includes('|') && line.includes('---')) {
-        console.log(`Found table separator at line ${i}:`, line);
-        // This is a table header separator, get the actual headers from previous line
-        if (i > 0) {
-          const headerLine = lines[i - 1].trim();
-          if (headerLine.includes('|')) {
-            currentHeaders = headerLine.split('|').map(h => cleanMarkdown(h.trim())).filter(h => h);
-            console.log('Found headers:', currentHeaders);
-            if (currentHeaders.length > 0) {
-              currentTable = {
-                title: cleanMarkdown(getTableTitle(lines, i)),
-                headers: currentHeaders,
-                rows: []
-              };
-              currentRows = [];
-              inTable = true;
-              consecutiveEmptyLines = 0;
-              console.log('Started new table with title:', currentTable.title);
-            }
-          }
-        }
-      } else if (line.includes('|') && currentHeaders.length > 0 && inTable) {
-        // This is a table row
-        const cells = line.split('|').map(cell => cleanMarkdown(cell.trim())).filter(cell => cell);
-        if (cells.length === currentHeaders.length) {
-          currentRows.push(cells);
-          consecutiveEmptyLines = 0;
-          console.log('Added row to table:', cells);
-        } else {
-          console.log('Row skipped - column count mismatch:', cells.length, 'vs', currentHeaders.length);
-          // Try to fix malformed rows by padding with empty cells
-          if (cells.length < currentHeaders.length) {
-            const paddedCells = [...cells];
-            while (paddedCells.length < currentHeaders.length) {
-              paddedCells.push('');
-            }
-            currentRows.push(paddedCells);
-            consecutiveEmptyLines = 0;
-            console.log('Fixed malformed row by padding:', paddedCells);
-          } else if (cells.length > currentHeaders.length) {
-            // Truncate extra columns
-            const truncatedCells = cells.slice(0, currentHeaders.length);
-            currentRows.push(truncatedCells);
-            consecutiveEmptyLines = 0;
-            console.log('Fixed malformed row by truncating:', truncatedCells);
-          } else {
-            // If column count doesn't match and we can't fix it, this might be the end of the table
-            if (currentTable && currentRows.length > 0) {
-              currentTable.rows = currentRows;
-              tables.push(currentTable);
-              console.log('Completed table with', currentRows.length, 'rows');
-              currentTable = null;
-              currentHeaders = [];
-              currentRows = [];
-              inTable = false;
-              consecutiveEmptyLines = 0;
-            }
-          }
-        }
-      } else if (line === '') {
-        // Empty line
-        consecutiveEmptyLines++;
-        if (currentTable && currentRows.length > 0 && consecutiveEmptyLines >= 2) {
-          // End table after 2 consecutive empty lines
-          currentTable.rows = currentRows;
-          tables.push(currentTable);
-          console.log('Completed table with', currentRows.length, 'rows (after empty lines)');
-          currentTable = null;
-          currentHeaders = [];
-          currentRows = [];
-          inTable = false;
-          consecutiveEmptyLines = 0;
-        }
-      } else if (currentTable && currentRows.length > 0 && !line.includes('|') && line !== '') {
-        // Non-table line, end the table
-        currentTable.rows = currentRows;
-        tables.push(currentTable);
-        console.log('Completed table with', currentRows.length, 'rows (non-table line)');
-        currentTable = null;
-        currentHeaders = [];
-        currentRows = [];
-        inTable = false;
-        consecutiveEmptyLines = 0;
-      }
-    }
-    
-    // Don't forget the last table
-    if (currentTable && currentRows.length > 0) {
-      currentTable.rows = currentRows;
-      tables.push(currentTable);
-      console.log('Completed final table with', currentRows.length, 'rows');
-    }
-    
-    console.log('Standard parsing found', tables.length, 'tables');
-    return tables;
-  };
-
-  // Strategy 2: Alternative table parsing method for different formats
-  const parseTablesAlternative = (content) => {
-    if (!content || typeof content !== 'string') return [];
-    
-    const tables = [];
-    const lines = content.split('\n');
-    let currentTable = null;
-    let currentHeaders = [];
-    let currentRows = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      // Look for lines that contain multiple | characters (potential table rows)
-      if (line.includes('|')) {
-        const cells = line.split('|').map(cell => cleanMarkdown(cell.trim())).filter(cell => cell);
-        
-        if (cells.length > 1) {
-          // If we don't have headers yet, use this as headers
-          if (currentHeaders.length === 0) {
-            currentHeaders = cells;
-            currentTable = {
-              title: cleanMarkdown(getTableTitle(lines, i)),
-              headers: currentHeaders,
-              rows: []
-            };
-            currentRows = [];
-          } else if (cells.length === currentHeaders.length) {
-            // This is a data row
-            currentRows.push(cells);
-          } else if (cells.length !== currentHeaders.length && currentRows.length > 0) {
-            // End of current table, save it
-            currentTable.rows = currentRows;
-            tables.push(currentTable);
-            
-            // Start new table with these cells as headers
-            currentHeaders = cells;
-            currentTable = {
-              title: cleanMarkdown(getTableTitle(lines, i)),
-              headers: currentHeaders,
-              rows: []
-            };
-            currentRows = [];
-          }
-        }
-      } else if (currentTable && currentRows.length > 0 && line === '') {
-        // Empty line might indicate end of table
-        currentTable.rows = currentRows;
-        tables.push(currentTable);
-        currentTable = null;
-        currentHeaders = [];
-        currentRows = [];
-      }
-    }
-    
-    // Don't forget the last table
-    if (currentTable && currentRows.length > 0) {
-      currentTable.rows = currentRows;
-      tables.push(currentTable);
-    }
-    
-    console.log('Alternative parsing found tables:', tables);
-    return tables;
-  };
-
-  // Strategy 3: Aggressive table detection for edge cases
-  const parseAggressiveTables = (content) => {
-    const tables = [];
-    const lines = content.split('\n');
-    let currentTable = null;
-    let currentHeaders = [];
-    let currentRows = [];
-    let consecutiveTableLines = 0;
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      // Look for any line with multiple pipe characters
-      if (line.includes('|')) {
-        const cells = line.split('|').map(cell => cleanMarkdown(cell.trim())).filter(cell => cell);
-        
-        if (cells.length >= 2) {
-          consecutiveTableLines++;
-          
-          // If this is the first table-like line, treat it as headers
-          if (currentHeaders.length === 0) {
-            currentHeaders = cells;
-            currentTable = {
-              title: cleanMarkdown(getTableTitle(lines, i)),
-              headers: currentHeaders,
-              rows: []
-            };
-            currentRows = [];
-          } else if (cells.length === currentHeaders.length) {
-            // This is a data row
-            currentRows.push(cells);
-          } else if (cells.length !== currentHeaders.length && currentRows.length > 0) {
-            // Different number of columns - might be a new table
-            // Save current table and start new one
-            currentTable.rows = currentRows;
-            tables.push(currentTable);
-            
-            currentHeaders = cells;
-            currentTable = {
-              title: cleanMarkdown(getTableTitle(lines, i)),
-              headers: currentHeaders,
-              rows: []
-            };
-            currentRows = [];
-          }
-        }
-      } else {
-        // Non-table line
-        if (consecutiveTableLines > 0 && currentTable && currentRows.length > 0) {
-          // End of table
-          currentTable.rows = currentRows;
-          tables.push(currentTable);
-          currentTable = null;
-          currentHeaders = [];
-          currentRows = [];
-          consecutiveTableLines = 0;
-        }
-      }
-    }
-    
-    // Don't forget the last table
-    if (currentTable && currentRows.length > 0) {
-      currentTable.rows = currentRows;
-      tables.push(currentTable);
-    }
-    
-    console.log('Aggressive parsing found tables:', tables);
-    return tables;
-  };
-
-  const getTableTitle = (lines, currentIndex) => {
-    // Look for a title above the table (usually a numbered section or bold text)
-    for (let i = currentIndex - 1; i >= Math.max(0, currentIndex - 10); i--) {
-      const line = lines[i].trim();
-      
-      // Check for bold markdown titles (e.g., **1. Current & Potential Formulations**)
-      if (line.startsWith('**') && line.endsWith('**')) {
-        const title = line.replace(/\*\*/g, '');
-        return title;
-      }
-      
-      // Check for numbered sections (e.g., 1. Current & Potential Formulations)
-      if (line.match(/^\d+\./)) {
-        return line;
-      }
-      
-      // Check for any non-empty line that's not a table line
-      if (line && !line.includes('|') && !line.includes('---') && line.length > 0) {
-        return line;
-      }
-    }
-    
-    // If no title found, try to look ahead for context
-    for (let i = currentIndex + 1; i < Math.min(lines.length, currentIndex + 5); i++) {
-      const line = lines[i].trim();
-      if (line.startsWith('**') && line.endsWith('**')) {
-        const title = line.replace(/\*\*/g, '');
-        return title;
-      }
-    }
-    
-    return 'Analysis Results';
-  };
-
-  const getReportId = () => {
-    if (!result?.data) return 'N/A';
-    return result.data.report_id || result.data.id || 'N/A';
-  };
-
-  const getModelUsed = () => {
-    if (!result?.data) return 'N/A';
-    return result.data.model_used || result.data.model || 'GPT-4o Search Preview';
-  };
-
-  const getProcessingTime = () => {
-    if (!result?.processing_time) return 'N/A';
-    return `${result.processing_time.toFixed(2)}s`;
-  };
-
-  const isMongoSaved = () => {
-    if (!result?.data) return false;
-    return result.data.mongo_saved || result.data.saved || false;
+    setSnackbar({
+      open: true,
+      message: 'Report downloaded successfully!',
+      severity: 'success'
+    });
   };
 
   return (
@@ -715,17 +368,17 @@ const DrugSearch = () => {
           gutterBottom 
           sx={{ 
             fontWeight: 700,
-            background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
             backgroundClip: 'text',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             mb: 2
           }}
         >
-          🔬 Drug Intelligence Search
+          💊 Drug Search & Analysis
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, maxWidth: 600 }}>
-          Advanced AI-powered pharmaceutical analysis with comprehensive insights and market intelligence
+          Advanced AI-powered pharmaceutical drug analysis with comprehensive insights and market intelligence
         </Typography>
         <Alert severity="info" sx={{ mb: 3, maxWidth: 600 }}>
           <Typography variant="body2">
@@ -757,8 +410,8 @@ const DrugSearch = () => {
                 fullWidth
                 label="Drug Name"
                 value={formData.product_name}
-                onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
-                placeholder="e.g., Lisinopril, Metformin"
+                onChange={(e) => handleInputChange('product_name', e.target.value)}
+                placeholder="e.g., Aspirin, Ibuprofen, Paracetamol"
                 sx={{ mb: 2 }}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 variant="outlined"
@@ -768,7 +421,7 @@ const DrugSearch = () => {
                 fullWidth
                 label="User ID"
                 value={formData.user_id}
-                onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+                onChange={(e) => handleInputChange('user_id', e.target.value)}
                 placeholder="Enter user ID"
                 sx={{ mb: 3 }}
                 variant="outlined"
@@ -823,6 +476,65 @@ const DrugSearch = () => {
               >
                 Test API Connection
               </Button>
+
+              {/* Debug Controls */}
+              <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={toggleDebugMode}
+                  startIcon={<BugReport />}
+                  color={isDebugEnabled() ? 'success' : 'default'}
+                >
+                  {isDebugEnabled() ? 'Debug ON' : 'Debug OFF'}
+                </Button>
+                {result && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={debugTableDataHandler}
+                    startIcon={<BugReport />}
+                  >
+                    Debug Tables
+                  </Button>
+                )}
+                {result && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={debugTableParsingHandler}
+                    startIcon={<BugReport />}
+                  >
+                    Debug Parsing
+                  </Button>
+                )}
+                {result && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      console.log('=== FULL RESULT DATA ===');
+                      console.log('Result object:', result);
+                      console.log('Result type:', typeof result);
+                      console.log('Has tables:', !!result.tables);
+                      console.log('Tables count:', result.tables?.length || 0);
+                      console.log('Has report:', !!result.report);
+                      console.log('Report type:', typeof result.report);
+                      if (result.report) {
+                        console.log('Report preview (first 500 chars):', result.report.substring(0, 500));
+                      }
+                      setSnackbar({
+                        open: true,
+                        message: 'Result data logged to console',
+                        severity: 'info'
+                      });
+                    }}
+                    startIcon={<Info />}
+                  >
+                    Log Result Data
+                  </Button>
+                )}
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -834,7 +546,7 @@ const DrugSearch = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                 <Avatar 
                   sx={{ 
-                    background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                    background: 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)',
                     mr: 2
                   }}
                 >
@@ -904,7 +616,7 @@ const DrugSearch = () => {
           </Card>
         </Grid>
 
-        {/* Results */}
+                      {/* Results */}
         <Grid item xs={12}>
           {error && (
             <Alert 
@@ -938,41 +650,41 @@ const DrugSearch = () => {
                       Analysis Results
                     </Typography>
                   </Box>
-                                     <Box sx={{ display: 'flex', gap: 1 }}>
-                     <Tooltip title="Copy to clipboard">
-                       <IconButton
-                         onClick={() => copyToClipboard(getReportContent())}
-                         sx={{ 
-                           background: 'rgba(37, 99, 235, 0.1)',
-                           '&:hover': { background: 'rgba(37, 99, 235, 0.2)' }
-                         }}
-                       >
-                         <ContentCopy />
-                       </IconButton>
-                     </Tooltip>
-                     <Tooltip title="Download report">
-                       <IconButton
-                         onClick={downloadReport}
-                         sx={{ 
-                           background: 'rgba(16, 185, 129, 0.1)',
-                           '&:hover': { background: 'rgba(16, 185, 129, 0.2)' }
-                         }}
-                       >
-                         <Download />
-                       </IconButton>
-                     </Tooltip>
-                     <Tooltip title="Refresh analysis">
-                       <IconButton
-                         onClick={handleSearch}
-                         sx={{ 
-                           background: 'rgba(16, 185, 129, 0.1)',
-                           '&:hover': { background: 'rgba(16, 185, 129, 0.2)' }
-                         }}
-                       >
-                         <Refresh />
-                       </IconButton>
-                     </Tooltip>
-                   </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Tooltip title="Copy to clipboard">
+                      <IconButton
+                        onClick={() => copyToClipboard(getReportContent())}
+                        sx={{ 
+                          background: 'rgba(37, 99, 235, 0.1)',
+                          '&:hover': { background: 'rgba(37, 99, 235, 0.2)' }
+                        }}
+                      >
+                        <ContentCopy />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Download report">
+                      <IconButton
+                        onClick={downloadReport}
+                        sx={{ 
+                          background: 'rgba(16, 185, 129, 0.1)',
+                          '&:hover': { background: 'rgba(16, 185, 129, 0.2)' }
+                        }}
+                      >
+                        <Download />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Refresh analysis">
+                      <IconButton
+                        onClick={handleSearch}
+                        sx={{ 
+                          background: 'rgba(124, 58, 237, 0.1)',
+                          '&:hover': { background: 'rgba(124, 58, 237, 0.2)' }
+                        }}
+                      >
+                        <Refresh />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </Box>
 
                 <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -982,19 +694,19 @@ const DrugSearch = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                           <Typography variant="body2" color="text.secondary">Report ID:</Typography>
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {getReportId()}
+                            {result.report_id || 'N/A'}
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="body2" color="text.secondary">Model Used:</Typography>
+                          <Typography variant="body2" color="text.secondary">Drug:</Typography>
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {getModelUsed()}
+                            {formData.product_name}
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">Processing Time:</Typography>
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {getProcessingTime()}
+                            {result.processing_time ? `${result.processing_time.toFixed(2)}s` : 'N/A'}
                           </Typography>
                         </Box>
                       </CardContent>
@@ -1004,10 +716,10 @@ const DrugSearch = () => {
                     <Card sx={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
                       <CardContent sx={{ p: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Typography variant="body2" color="text.secondary">MongoDB Saved:</Typography>
+                          <Typography variant="body2" color="text.secondary">Analysis Type:</Typography>
                           <Chip 
-                            label={isMongoSaved() ? 'Yes' : 'No'} 
-                            color={isMongoSaved() ? 'success' : 'error'}
+                            label={analysisTypes[activeTab].label} 
+                            color={analysisTypes[activeTab].color}
                             size="small"
                             variant="filled"
                           />
@@ -1026,147 +738,209 @@ const DrugSearch = () => {
                   </Grid>
                 </Grid>
 
-                                 {/* Parsed Tables */}
-                 {(() => {
-                   const tables = parseAIResponse(getReportContent());
-                   if (tables.length > 0) {
-                     return tables.map((table, index) => (
-                       <Card key={index} sx={{ mb: 3, background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
-                         <CardContent sx={{ p: 3 }}>
-                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                             <Avatar 
-                               sx={{ 
-                                 background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
-                                 mr: 2,
-                                 width: 32,
-                                 height: 32
-                               }}
-                             >
-                               <Analytics sx={{ fontSize: 16 }} />
-                             </Avatar>
-                             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                               {table.title}
-                             </Typography>
-                           </Box>
-                           
-                           <TableContainer 
-                             component={Paper} 
-                             sx={{ 
-                               maxHeight: 400,
-                               overflow: 'auto',
-                               border: '1px solid rgba(0,0,0,0.05)',
-                               borderRadius: 2
-                             }}
-                           >
-                             <Table stickyHeader size="small">
-                               <TableHead>
-                                 <TableRow>
-                                   {table.headers.map((header, headerIndex) => (
-                                     <TableCell 
-                                       key={headerIndex}
-                                       sx={{ 
-                                         fontWeight: 600,
-                                         background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                                         color: 'white',
-                                         fontSize: '0.875rem',
-                                         whiteSpace: 'nowrap'
-                                       }}
-                                     >
-                                       {header}
-                                     </TableCell>
-                                   ))}
-                                 </TableRow>
-                               </TableHead>
-                               <TableBody>
-                                 {table.rows.map((row, rowIndex) => (
-                                   <TableRow 
-                                     key={rowIndex}
-                                     sx={{ 
-                                       '&:nth-of-type(odd)': { 
-                                         backgroundColor: 'rgba(0,0,0,0.02)' 
-                                       },
-                                       '&:hover': { 
-                                         backgroundColor: 'rgba(37, 99, 235, 0.05)' 
-                                       }
-                                     }}
-                                   >
-                                     {row.map((cell, cellIndex) => (
-                                       <TableCell 
-                                         key={cellIndex}
-                                         sx={{ 
-                                           fontSize: '0.875rem',
-                                           maxWidth: 200,
-                                           wordWrap: 'break-word',
-                                           whiteSpace: 'pre-wrap'
-                                         }}
-                                       >
-                                         {cell}
-                                       </TableCell>
-                                     ))}
-                                   </TableRow>
-                                 ))}
-                               </TableBody>
-                             </Table>
-                           </TableContainer>
-                         </CardContent>
-                       </Card>
-                     ));
-                   }
-                   
-                   // Fallback to raw text if no tables found
-                   return (
-                     <Accordion defaultExpanded sx={{ 
-                       '& .MuiAccordionSummary-root': {
-                         background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                         borderRadius: 1
-                       }
-                     }}>
-                       <AccordionSummary expandIcon={<ExpandMore />}>
-                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                           <Info sx={{ mr: 1, color: 'primary.main' }} />
-                           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                             Analysis Content
-                           </Typography>
-                         </Box>
-                       </AccordionSummary>
-                       <AccordionDetails>
-                         <Paper sx={{ 
-                           p: 3, 
-                           background: '#fafafa', 
-                           maxHeight: 500, 
-                           overflow: 'auto',
-                           border: '1px solid rgba(0,0,0,0.05)',
-                           borderRadius: 2
-                         }}>
-                           <pre style={{ 
-                             whiteSpace: 'pre-wrap', 
-                             fontFamily: '"Inter", monospace',
-                             fontSize: '14px',
-                             margin: 0,
-                             lineHeight: 1.6,
-                             color: '#374151'
-                           }}>
-                             {getReportContent()}
-                           </pre>
-                         </Paper>
-                       </AccordionDetails>
-                     </Accordion>
-                   );
-                 })()}
+                {/* Debug Information */}
+                {debugInfo && (
+                  <Accordion defaultExpanded sx={{ mb: 3 }}>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <BugReport sx={{ mr: 1, color: 'warning.main' }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          Debug Information
+                        </Typography>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, maxHeight: 400, overflow: 'auto' }}>
+                        <pre style={{ margin: 0, fontSize: '12px', fontFamily: 'monospace' }}>
+                          {JSON.stringify(debugInfo, null, 2)}
+                        </pre>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+
+                {/* Raw Content Debug - Show when tables fail to parse */}
+                {result && (!result.tables || result.tables.length === 0) && (
+                  <Accordion defaultExpanded sx={{ mb: 3 }}>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Info sx={{ mr: 1, color: 'error.main' }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          Raw Content (Tables Failed to Parse)
+                        </Typography>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Paper sx={{ 
+                        p: 3, 
+                        background: '#fafafa', 
+                        maxHeight: 500, 
+                        overflow: 'auto',
+                        border: '1px solid rgba(0,0,0,0.05)',
+                        borderRadius: 2
+                      }}>
+                        <pre style={{ 
+                          whiteSpace: 'pre-wrap', 
+                          fontFamily: '"Inter", monospace',
+                          fontSize: '14px',
+                          margin: 0,
+                          lineHeight: 1.6,
+                          color: '#374151'
+                        }}>
+                          {getReportContent()}
+                        </pre>
+                      </Paper>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+
+                {/* Analysis Content */}
+                {(() => {
+                  if (result.tables && result.tables.length > 0) {
+                    return result.tables.map((table, tableIndex) => (
+                      <Card key={tableIndex} sx={{ mb: 3, background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+                        <CardContent sx={{ p: 3 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <Avatar 
+                              sx={{ 
+                                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                                mr: 2,
+                                width: 32,
+                                height: 32
+                              }}
+                            >
+                              <Analytics sx={{ fontSize: 16 }} />
+                            </Avatar>
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                              {table.title}
+                            </Typography>
+                          </Box>
+                          
+                          <TableContainer 
+                            component={Paper} 
+                            sx={{ 
+                              maxHeight: 600,
+                              overflow: 'auto',
+                              border: '1px solid rgba(0,0,0,0.05)',
+                              borderRadius: 2,
+                              '& .MuiTable-root': {
+                                minWidth: 650,
+                                tableLayout: 'auto'
+                              },
+                              '& .MuiTableCell-root': {
+                                maxWidth: 'none',
+                                wordBreak: 'break-word'
+                              }
+                            }}
+                          >
+                            <Table stickyHeader size="small">
+                              <TableHead>
+                                <TableRow>
+                                  {table.headers.map((header, headerIndex) => (
+                                    <ClickableTableCell 
+                                      key={headerIndex}
+                                      cellContent={header}
+                                      isHeader={true}
+                                    />
+                                  ))}
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {table.rows.map((row, rowIndex) => (
+                                  <TableRow 
+                                    key={rowIndex}
+                                    sx={{ 
+                                      '&:nth-of-type(odd)': { 
+                                        backgroundColor: 'rgba(0,0,0,0.02)' 
+                                      },
+                                      '&:hover': { 
+                                        backgroundColor: 'rgba(37, 99, 235, 0.05)' 
+                                      }
+                                    }}
+                                  >
+                                    {row.map((cell, cellIndex) => (
+                                      <ClickableTableCell 
+                                        key={cellIndex}
+                                        cellContent={cell}
+                                      />
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                          
+                          {/* Source Summary */}
+                          <SourceSummary 
+                            tableRows={table.rows}
+                            tableTitle={table.title}
+                          />
+                        </CardContent>
+                      </Card>
+                    ));
+                  }
+                  
+                  // Fallback to raw text if no tables found
+                  return (
+                    <Accordion defaultExpanded sx={{ 
+                      '& .MuiAccordionSummary-root': {
+                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                        borderRadius: 1
+                      }
+                    }}>
+                      <AccordionSummary expandIcon={<ExpandMore />}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Info sx={{ mr: 1, color: 'primary.main' }} />
+                          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                            Analysis Content
+                          </Typography>
+                        </Box>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Paper sx={{ 
+                          p: 3, 
+                          background: '#fafafa', 
+                          maxHeight: 500, 
+                          overflow: 'auto',
+                          border: '1px solid rgba(0,0,0,0.05)',
+                          borderRadius: 2
+                        }}>
+                          <pre style={{ 
+                            whiteSpace: 'pre-wrap', 
+                            fontFamily: '"Inter", monospace',
+                            fontSize: '14px',
+                            margin: 0,
+                            lineHeight: 1.6,
+                            color: '#374151'
+                          }}>
+                            {getReportContent()}
+                          </pre>
+                        </Paper>
+                      </AccordionDetails>
+                    </Accordion>
+                  );
+                })()}
               </CardContent>
             </Card>
           )}
         </Grid>
       </Grid>
 
-      {/* Snackbar for copy notifications */}
+      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      />
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

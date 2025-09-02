@@ -3,7 +3,7 @@ import {
   Box, Card, CardContent, Typography, TextField, Button, Grid,
   Tabs, Tab, Paper, Alert, CircularProgress, Chip, Accordion,
   AccordionSummary, AccordionDetails, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, IconButton, Snackbar, Avatar
+  TableContainer, TableHead, TableRow, IconButton, Snackbar, Avatar, Tooltip
 } from '@mui/material';
 import {
    Science, Business, Delete,
@@ -1081,10 +1081,18 @@ const Reports = () => {
                           <TableContainer 
                             component={Paper} 
                             sx={{ 
-                              maxHeight: 400,
+                              maxHeight: 600,
                               overflow: 'auto',
                               border: '1px solid rgba(0,0,0,0.05)',
-                              borderRadius: 2
+                              borderRadius: 2,
+                              '& .MuiTable-root': {
+                                minWidth: 650,
+                                tableLayout: 'auto'
+                              },
+                              '& .MuiTableCell-root': {
+                                maxWidth: 'none',
+                                wordBreak: 'break-word'
+                              }
                             }}
                           >
                             <Table stickyHeader size="small">
@@ -1120,17 +1128,27 @@ const Reports = () => {
                                     }}
                                   >
                                     {row.map((cell, cellIndex) => (
-                                      <TableCell 
+                                      <Tooltip 
                                         key={cellIndex}
-                                        sx={{ 
-                                          fontSize: '0.875rem',
-                                          maxWidth: 200,
-                                          wordWrap: 'break-word',
-                                          whiteSpace: 'pre-wrap'
-                                        }}
+                                        title={cell && cell.length > 100 ? cell : ''}
+                                        placement="top"
+                                        arrow
                                       >
-                                        {cell}
-                                      </TableCell>
+                                        <TableCell 
+                                          sx={{ 
+                                            fontSize: '0.875rem',
+                                            minWidth: 150,
+                                            maxWidth: 'none',
+                                            width: 'auto',
+                                            wordWrap: 'break-word',
+                                            whiteSpace: 'pre-wrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                          }}
+                                        >
+                                          {cell}
+                                        </TableCell>
+                                      </Tooltip>
                                     ))}
                                   </TableRow>
                                 ))}
