@@ -210,17 +210,30 @@ const DrugSearch = () => {
       if (response.data && response.data.success) {
         let processedData = response.data;
         
-        // Handle the actual backend response structure
+        // Handle the actual backend response structure with webhook integration
         if (response.data.data && response.data.data.product_information) {
-          console.log('Found product_information, converting to structured format...');
+          console.log('Found product_information, processing with webhook data...');
           const markdownContent = response.data.data.product_information;
           
           console.log('Markdown content length:', markdownContent.length);
           console.log('Markdown content preview (first 1000 chars):', markdownContent.substring(0, 1000));
           console.log('Markdown content preview (last 500 chars):', markdownContent.substring(markdownContent.length - 500));
           
-          // Convert the markdown content to structured tables
-          processedData = convertMarkdownToStructuredData(markdownContent);
+          // Check for webhook structured data first
+          if (response.data.data.structured_data && response.data.data.webhook_result?.success) {
+            console.log('Using webhook structured data:', response.data.data.structured_data);
+            processedData = {
+              tables: response.data.data.structured_data.extracted_tables || [],
+              keyValuePairs: response.data.data.structured_data.key_value_pairs || {},
+              sections: response.data.data.structured_data.sections || {},
+              webhookData: response.data.data.structured_data,
+              webhookStatus: response.data.data.webhook_result
+            };
+          } else {
+            // Fallback to markdown parsing
+            console.log('No webhook structured data, converting markdown to structured format...');
+            processedData = convertMarkdownToStructuredData(markdownContent);
+          }
           
           // Add the original response data for reference
           processedData.originalData = response.data.data;
@@ -284,9 +297,17 @@ const DrugSearch = () => {
           console.log('Markdown content analysis:', analysis);
         }
         
+        // Create success message with webhook status
+        let successMessage = `Drug analysis completed successfully! ${processedData.tables?.length || 0} tables found.`;
+        if (processedData.webhookStatus?.success) {
+          successMessage += ' Webhook processed successfully.';
+        } else if (processedData.webhookStatus) {
+          successMessage += ' Webhook processing failed, using fallback parsing.';
+        }
+        
         setSnackbar({
           open: true,
-          message: `Drug analysis completed successfully! ${processedData.tables?.length || 0} tables found.`,
+          message: successMessage,
           severity: 'success'
         });
       } else {

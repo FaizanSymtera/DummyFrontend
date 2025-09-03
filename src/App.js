@@ -14,6 +14,7 @@ const DrugSearch = lazy(() => import('./pages/DrugSearch'));
 const CompanySearch = lazy(() => import('./pages/CompanySearch'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Sources = lazy(() => import('./pages/Sources'));
+const Warehouse = lazy(() => import('./pages/Warehouse'));
 const APIInfo = lazy(() => import('./pages/APIInfo'));
 const SourceTest = lazy(() => import('./components/SourceTest'));
 
@@ -204,6 +205,7 @@ function App() {
                     <Route path="/company-search" element={<CompanySearch />} />
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/sources" element={<Sources />} />
+                    <Route path="/warehouse" element={<Warehouse />} />
                     <Route path="/api-info" element={<APIInfo />} />
                     <Route path="/source-test" element={<SourceTest />} />
                     <Route path="*" element={<Navigate to="/" replace />} />

@@ -187,13 +187,26 @@ const CompanySearch = () => {
              if (response.data && response.data.success) {
          let processedData = response.data;
          
-         // Handle the actual backend response structure
+         // Handle the actual backend response structure with webhook integration
          if (response.data.data && response.data.data.report_content) {
-           console.log('Found report_content, converting to structured format...');
+           console.log('Found report_content, processing with webhook data...');
            const markdownContent = response.data.data.report_content;
            
-           // Convert the markdown content to structured tables
-           processedData = convertMarkdownToStructuredData(markdownContent);
+           // Check for webhook structured data first
+           if (response.data.data.structured_data && response.data.data.webhook_result?.success) {
+             console.log('Using webhook structured data:', response.data.data.structured_data);
+             processedData = {
+               tables: response.data.data.structured_data.extracted_tables || [],
+               keyValuePairs: response.data.data.structured_data.key_value_pairs || {},
+               sections: response.data.data.structured_data.sections || {},
+               webhookData: response.data.data.structured_data,
+               webhookStatus: response.data.data.webhook_result
+             };
+           } else {
+             // Fallback to markdown parsing
+             console.log('No webhook structured data, converting markdown to structured format...');
+             processedData = convertMarkdownToStructuredData(markdownContent);
+           }
            
            // Add the original response data for reference
            processedData.originalData = response.data.data;
@@ -225,9 +238,17 @@ const CompanySearch = () => {
           console.log('Markdown content analysis:', analysis);
         }
         
+        // Create success message with webhook status
+        let successMessage = `Company analysis completed successfully! ${processedData.tables?.length || 0} tables found.`;
+        if (processedData.webhookStatus?.success) {
+          successMessage += ' Webhook processed successfully.';
+        } else if (processedData.webhookStatus) {
+          successMessage += ' Webhook processing failed, using fallback parsing.';
+        }
+        
         setSnackbar({
           open: true,
-          message: `Company analysis completed successfully! ${processedData.tables?.length || 0} tables found.`,
+          message: successMessage,
           severity: 'success'
         });
       } else {

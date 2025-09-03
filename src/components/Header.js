@@ -17,7 +17,8 @@ import {
   Assessment,
   Info,
   Menu as MenuIcon,
-  Source
+  Source,
+  Storage
 } from '@mui/icons-material';
 
 const Header = () => {
@@ -44,6 +45,12 @@ const Header = () => {
       label: 'Company Search',
       icon: <Business sx={{ fontSize: 20 }} />,
       description: 'Company Intelligence'
+    },
+    {
+      path: '/warehouse',
+      label: 'Warehouse',
+      icon: <Storage sx={{ fontSize: 20 }} />,
+      description: 'Data Warehouse & Reports'
     },
     {
       path: '/reports',

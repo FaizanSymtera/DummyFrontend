@@ -74,7 +74,7 @@ api.interceptors.response.use(
 
 // Drug Search APIs
 export const drugAPI = {
-  // Main drug search
+  // Main drug search with webhook integration
   search: (data) => {
     // Ensure the request matches the expected format
     const requestData = {
@@ -82,6 +82,7 @@ export const drugAPI = {
       user_id: data.user_id,
       product_type: data.analysis_type || data.product_type || 'comprehensive'
     };
+    console.log('Drug Search API call with data:', requestData);
     return api.post('/search/product', requestData);
   },
   
@@ -123,13 +124,14 @@ export const drugAPI = {
 
 // Company Search APIs
 export const companyAPI = {
-  // Main company search
+  // Main company search with webhook integration
   search: (data) => {
     // Ensure the request matches the expected format
     const requestData = {
       company_name: data.company_name,
       user_id: data.user_id || 'demo_user'
     };
+    console.log('Company Search API call with data:', requestData);
     return api.post('/search/company', requestData);
   },
   
@@ -177,6 +179,40 @@ export const sourcesAPI = {
     console.log('🔍 reportId value:', reportId);
     return api.get(`/search/sources/${reportId}`);
   },
+};
+
+// Warehouse APIs
+export const warehouseAPI = {
+  // Stage 1: Extract raw data to warehouse
+  extractRawData: (data) => {
+    const requestData = {
+      query: data.query,
+      entity_type: data.entity_type,
+      user_id: data.user_id || 'demo_user',
+      extraction_cycles: data.extraction_cycles || 5,
+      model: data.model || 'gpt-4o-search-preview'
+    };
+    console.log('Warehouse extract raw data API call with data:', requestData);
+    return api.post('/extract-raw-data', requestData);
+  },
+  
+  // Stage 2: Generate report from warehouse
+  generateReportFromWarehouse: (data) => {
+    const requestData = {
+      warehouse_id: data.warehouse_id,
+      user_id: data.user_id || 'demo_user',
+      report_sections: data.report_sections || [
+        'market_analysis', 
+        'formulation_analysis', 
+        'pharmacokinetic_analysis', 
+        'dosage_and_opportunity_matrix', 
+        'drug_search'
+      ],
+      agent_cycles_per_section: data.agent_cycles_per_section || 3
+    };
+    console.log('Warehouse generate report API call with data:', requestData);
+    return api.post('/generate-report-from-warehouse', requestData);
+  }
 };
 
 // General APIs
