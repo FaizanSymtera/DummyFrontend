@@ -188,9 +188,7 @@ export const warehouseAPI = {
     const requestData = {
       query: data.query,
       entity_type: data.entity_type,
-      user_id: data.user_id || 'demo_user',
-      extraction_cycles: data.extraction_cycles || 5,
-      model: data.model || 'gpt-4o-search-preview'
+      user_id: data.user_id || 'bd6eb89e-6cdc-4a36-90ef-d0f2875f91ea'
     };
     console.log('Warehouse extract raw data API call with data:', requestData);
     return api.post('/extract-raw-data', requestData);

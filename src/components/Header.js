@@ -35,18 +35,6 @@ const Header = () => {
       description: 'Overview & Analytics'
     },
     {
-      path: '/drug-search',
-      label: 'Drug Search',
-      icon: <Science sx={{ fontSize: 20 }} />,
-      description: 'Pharmaceutical Analysis'
-    },
-    {
-      path: '/company-search',
-      label: 'Company Search',
-      icon: <Business sx={{ fontSize: 20 }} />,
-      description: 'Company Intelligence'
-    },
-    {
       path: '/warehouse',
       label: 'Warehouse',
       icon: <Storage sx={{ fontSize: 20 }} />,
